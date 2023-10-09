@@ -19,24 +19,25 @@ qr_url = "http://api.qrserver.com/v1/read-qr-code/" #url qr апи
 
 class States(StatesGroup):
     candidate = State()
+    votes_messages = State()
     waiting_to_qr = State()
 
 candidates = [{
-                "id": 1,
+                "id": 0,
                 "name": "Илья Иванов",
                 "info": "15 лет, 89 группа",
                 "speech": "Самое главное это учёба!",
                 "image": "1.png"
             },
             {
-                "id": 2,
+                "id": 1,
                 "name": "Федя Фёдоров",
                 "info": "16 лет, 76 группа",
                 "speech": "Самое главное это спорт!",
                 "image": "1.png"
             },
             {
-                "id": 3,
+                "id": 2,
                 "name": "Катя Спасимирова",
                 "info": "15 лет, 91 группа",
                 "speech": "Самое главное это животные!",
@@ -45,7 +46,8 @@ candidates = [{
 ]
 
 @dp.message(Command('start'))
-async def start(message: types.Message):
+async def start(message: types.Message, state: FSMContext):
+    await state.clear()
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Приступить к голосованию",
@@ -57,25 +59,31 @@ async def start(message: types.Message):
 @dp.callback_query(F.data == "start_voting")
 async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
     await callback.message.delete()
-    await callback.message.answer("Список кандидатов:")
 
+    votes = [await callback.message.answer("Список кандидатов:")]
     for candidate in candidates:
         builder = InlineKeyboardBuilder()
         builder.add(types.InlineKeyboardButton(
             text="Проголосовать",
             callback_data=f"candidate-{candidate['id']}")
         )
-        await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['image']}"), 
+        votes.append(await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['image']}"), 
                                             caption=f"*{candidate['name']}*\n{candidate['info']}\n\n{candidate['speech']}", 
                                             parse_mode="Markdown", 
-                                            reply_markup=builder.as_markup())
+                                            reply_markup=builder.as_markup()))
         
+    await state.update_data(votes=votes)
     await state.set_state(States.candidate)
 
 
 @dp.callback_query(F.data.startswith("candidate-"), States.candidate)
 async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(candidate=callback.data.replace("candidate-", ""))
+
+    votes = (await state.get_data())["votes"]
+    for vote in votes:
+        try: await vote.delete()
+        except: ...
 
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
@@ -110,7 +118,6 @@ async def send_qr(message: types.Message, state: FSMContext):
     response = requests.post(url=qr_url, files=files) #делаем POST запрос к апи, и получаем результат
     data = json.loads(response.content)[0]["symbol"][0]["data"] #Вытаскиваем оттуда значение qr
 
-    print(response.content)
     if response.status_code != 200 or data == None:
         await message.answer("Извините, боту не удалось корректно прочитать QR код.\nПопробуйте сфотографировать чётче")
         return
