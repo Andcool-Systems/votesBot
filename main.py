@@ -65,8 +65,9 @@ async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
             text="Проголосовать",
             callback_data=f"candidate-{candidate['id']}")
         )
-        await callback.message.answer_photo(photo=FSInputFile(f"res/1.png"), caption=
-                                            f"*{candidate['name']}*\n{candidate['info']}\n\n{candidate['speech']}", parse_mode="Markdown", 
+        await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['image']}"), 
+                                            caption=f"*{candidate['name']}*\n{candidate['info']}\n\n{candidate['speech']}", 
+                                            parse_mode="Markdown", 
                                             reply_markup=builder.as_markup())
         
     await state.set_state(States.candidate)
@@ -75,7 +76,6 @@ async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("candidate-"), States.candidate)
 async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(candidate=callback.data.replace("candidate-", ""))
-
 
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
