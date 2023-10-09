@@ -126,7 +126,7 @@ async def send_qr(message: types.Message, state: FSMContext):
 
 
 async def start():
-    await dp.start_polling(bot, skip_updates=True)
+    await dp.start_polling(bot)
 
 
 if __name__ == '__main__':
