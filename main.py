@@ -17,11 +17,9 @@ dp = Dispatcher()
 
 qr_url = "http://api.qrserver.com/v1/read-qr-code/" #url qr апи
 
-
 class States(StatesGroup):
     candidate = State()
     waiting_to_qr = State()
-
 
 candidates = [{
                 "id": 1,
@@ -45,7 +43,6 @@ candidates = [{
                 "image": "1.png"
             }
 ]
-
 
 @dp.message(Command('start'))
 async def start(message: types.Message):
