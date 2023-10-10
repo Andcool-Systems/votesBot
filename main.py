@@ -118,6 +118,7 @@ async def send_qr(message: types.Message, state: FSMContext):
 
     files = {'file': bytes} #открываем картинку как массив байт
     response = requests.post(url=qr_url, files=files) #делаем POST запрос к апи, и получаем результат
+    print(response.content)
     data = json.loads(response.content)[0]["symbol"][0]["data"] #Вытаскиваем оттуда значение qr
 
     if response.status_code != 200 or data == None: #Если распознать код не удалось
