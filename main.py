@@ -11,11 +11,14 @@ import requests
 import asyncio
 from dotenv import load_dotenv
 import io
-import base64
+from classes import DataBase
 
 load_dotenv()
 bot = Bot(token=os.getenv("TOKEN"))
 dp = Dispatcher()
+db = DataBase()
+
+candidates = db.candidates
 
 qr_url = "http://api.qrserver.com/v1/read-qr-code/" #url qr апи
 
@@ -23,29 +26,8 @@ class States(StatesGroup):
     candidate = State()
     votes_messages = State()
     waiting_to_qr = State()
+    final_voting = State()
 
-candidates = [{
-                "id": 0,
-                "name": "Илья Иванов",
-                "info": "15 лет, 89 группа",
-                "speech": "Самое главное это учёба!",
-                "image": "1.png"
-            },
-            {
-                "id": 1,
-                "name": "Федя Фёдоров",
-                "info": "16 лет, 76 группа",
-                "speech": "Самое главное это спорт!",
-                "image": "1.png"
-            },
-            {
-                "id": 2,
-                "name": "Катя Спасимирова",
-                "info": "15 лет, 91 группа",
-                "speech": "Самое главное это животные!",
-                "image": "1.png"
-            }
-]
 
 @dp.message(Command('start'))
 async def start(message: types.Message, state: FSMContext):
@@ -67,10 +49,13 @@ async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
         builder = InlineKeyboardBuilder()
         builder.add(types.InlineKeyboardButton(
             text="Проголосовать",
-            callback_data=f"candidate-{candidate['id']}")
+            callback_data=f"candidate-{candidate['Id']}")
         )
-        votes.append(await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['image']}"), 
-                                            caption=f"*{candidate['name']}*\n{candidate['info']}\n\n{candidate['speech']}", 
+        
+        votes.append(await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['Id']}.jpg"), 
+                                            caption=f"*{candidate['Name']}*\n{candidate['Age']} лет, {candidate['Group']} группа" \
+                                            + f"\n\n*{candidate['Remarck']}*\n{candidate['ElectionProgramm']}", 
+
                                             parse_mode="Markdown", 
                                             reply_markup=builder.as_markup()))
         
@@ -126,10 +111,37 @@ async def send_qr(message: types.Message, state: FSMContext):
         await message.answer("Извините, боту не удалось корректно прочитать QR код.\nПопробуйте сфотографировать чётче")
         return
 
-    await message.answer(f"Дальше что-то там, работа с апи и тд\nДанные qr кода: {data}\nКандидат номер {candidate}")
+    #await message.answer(f"Дальше что-то там, работа с апи и тд\nДанные qr кода: {data}\nКандидат номер {candidate}")
 
+    validation_result = db.validateCode(data)
+    if validation_result["status"] == "error":
+        await message.reply(validation_result["message"])
+        return
+
+    builder = InlineKeyboardBuilder()
+    builder.add(
+        types.InlineKeyboardButton(text="Проголосовать",
+        callback_data=f"final-Vote"),
+        types.InlineKeyboardButton(text="Отмена",
+        callback_data="qr_deny")
+    )
+        
+    await message.answer(f"Хорошо, вы собираетесь проголосовать за *{candidates[int(candidate)]['Name']}*",
+                                            parse_mode="Markdown", 
+                                            reply_markup=builder.as_markup())
+    
+    await state.update_data(code=data)
+    await state.set_state(States.final_voting) 
+
+
+@dp.callback_query(F.data == "final-Vote", States.final_voting)
+async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    db.vote(data["code"], data["candidate"])
+    await callback.message.delete()
+    await callback.message.answer(f"*Спасибо!*\nВаш голос очень важен для нас",
+                                            parse_mode="Markdown")
     await state.clear()
-
 
 async def start():
     await dp.start_polling(bot)
