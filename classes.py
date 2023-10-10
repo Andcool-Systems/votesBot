@@ -1,20 +1,26 @@
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
+import os
 
+"""Класс для работы с базой данных"""
 class DataBase:
     def __init__(self):
+        """Настройка соединения с базой данных"""
+
         cred = credentials.Certificate('key.json')
         firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://prezident-selection-default-rtdb.europe-west1.firebasedatabase.app/'
+            'databaseURL': os.getenv("URL")
         })
-        self.ref = db.reference('/')
-        response = self.ref.get()
-        self.candidates = response['CandidatesDB']
+        ref = db.reference('/CandidatesDB')
+        self.candidates = ref.get()
+
 
     def validateCode(self, code):
-        response = self.ref.get()
-        code_validation = response["ElectionDB"]
+        """Метод проверки кода на валидность"""
+
+        ref = db.reference('/ElectionDB')
+        code_validation = ref.get()
 
         if str(code) not in code_validation:
             return {"status": "error", "message": "Это не код голосования!"}
@@ -23,10 +29,9 @@ class DataBase:
 
         return {"status": "success"}
 
-    def vote(self, code, candidate):
-        self.ref.update({f'ElectionDB/{code}/Chose': candidate})
-        self.ref.update({f'ElectionDB/{code}/IsValid': True})
 
-    def clearVote(self, code):
-        self.ref.update({f'ElectionDB/{code}/Chose': -1})
-        self.ref.update({f'ElectionDB/{code}/IsValid': False})
+    def vote(self, code, candidate):
+        """Метод для обновления данных в бд"""
+        ref = db.reference('/ElectionDB')
+        ref.update({f'{code}/Chose': candidate})
+        ref.update({f'{code}/IsValid': True})
