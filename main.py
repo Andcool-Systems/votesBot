@@ -10,6 +10,8 @@ import json
 import requests
 import asyncio
 from dotenv import load_dotenv
+import io
+import base64
 
 load_dotenv()
 bot = Bot(token=os.getenv("TOKEN"))
@@ -109,12 +111,14 @@ async def send_qr(message: types.Message, state: FSMContext):
     file_id = message.photo[-1].file_id
     file = await bot.get_file(file_id)
     file_path = file.file_path
-    path = "".join(file.file_path.split(".")[-1:])
 
-    await bot.download_file(file_path, f"{message.chat.id}.{path}")
+    bio = io.BytesIO()
+    bio.name = f"{message.chat.id}.png"
+    photo: io.BytesIO = await bot.download_file(file_path, destination=bio)
+    bio.seek(0)
+    bytes = photo.read()
 
-    files = {'file': open(f"{message.chat.id}.{path}", 'rb')} #открываем картинку как массив байт
-
+    files = {'file': bytes} #открываем картинку как массив байт
     response = requests.post(url=qr_url, files=files) #делаем POST запрос к апи, и получаем результат
     data = json.loads(response.content)[0]["symbol"][0]["data"] #Вытаскиваем оттуда значение qr
 
@@ -124,9 +128,7 @@ async def send_qr(message: types.Message, state: FSMContext):
 
     await message.answer(f"Дальше что-то там, работа с апи и тд\nДанные qr кода: {data}\nКандидат номер {candidate}")
 
-    files["file"].close()
     await state.clear()
-    os.remove(f"{message.chat.id}.{path}")
 
 
 async def start():
