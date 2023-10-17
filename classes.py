@@ -1,6 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
+from firebase_admin import storage
 import os
 
 """Класс для работы с базой данных"""
@@ -10,10 +11,13 @@ class DataBase:
 
         cred = credentials.Certificate('key.json')
         firebase_admin.initialize_app(cred, {
-            'databaseURL': os.getenv("URL")
+            'databaseURL': os.getenv("URL"),
+            'storageBucket': "cand"
         })
         ref = db.reference('/CandidatesDB')
         self.candidates = ref.get()
+        bucket = storage.bucket()
+        print(self.candidates)
 
 
     def validateCode(self, code):
@@ -24,7 +28,7 @@ class DataBase:
 
         if str(code) not in code_validation:
             return {"status": "error", "message": "Это не код голосования!"}
-        elif code_validation[str(code)]["IsValid"] == True:
+        elif code_validation[str(code)]["IsValid"]:
             return {"status": "error", "message": "Этот код уже был использован!"}
 
         return {"status": "success"}

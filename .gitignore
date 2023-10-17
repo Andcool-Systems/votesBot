@@ -1,3 +1,4 @@
 /.env
 /key.json
 /__pycache__
+/venv

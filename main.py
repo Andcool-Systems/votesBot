@@ -23,34 +23,38 @@ bot = Bot(token=os.getenv("TOKEN"))
 dp = Dispatcher()
 db = DataBase()
 
-candidates = db.candidates #Парсинг данных о кандидатах с бд
+candidates = db.candidates  # Парсинг данных о кандидатах с бд
 
-qr_url = "http://api.qrserver.com/v1/read-qr-code/" #url qr апи
+qr_url = "http://api.qrserver.com/v1/read-qr-code/"  # url qr апи
 
 
-"""Стейты для aiogram"""
 class States(StatesGroup):
+    """Стейты для aiogram"""
+
     candidate = State()
     votes_messages = State()
     waiting_to_qr = State()
     final_voting = State()
 
 
-"""Хэндлер для команды /start"""
 @dp.message(Command('start'))
 async def start(message: types.Message, state: FSMContext):
+    """Хэндлер для команды /start"""
+
     await state.clear()
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
         text="Приступить к голосованию",
         callback_data="start_voting")
     )
-    await message.answer(f"Здравствуйте, {message.from_user.full_name}.\nЯ - бот, созданный для выбора президента лицея в 2023 году.\nДавайте начнём", reply_markup=builder.as_markup())
+    await message.answer(f"Здравствуйте, {message.from_user.full_name}.\nЯ - бот, созданный для выбора президента лицея " \
+                         + "в 2023 году.\nДавайте начнём", reply_markup=builder.as_markup())
 
 
-"""Хэндлер для колбэка кнопки 'Приступить к голосованию'"""
 @dp.callback_query(F.data == "start_voting")
 async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
+    """Хэндлер для колбэка кнопки 'Приступить к голосованию'"""
+
     await callback.message.delete()
 
     votes = [await callback.message.answer("Список кандидатов:")]
@@ -72,9 +76,10 @@ async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
     await state.set_state(States.candidate)
 
 
-"""Хэндлер для колбэка кнопок выбора кандидата"""
 @dp.callback_query(F.data.startswith("candidate-"), States.candidate)
 async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
+    """Хэндлер для колбэка кнопок выбора кандидата"""
+
     await state.update_data(candidate=callback.data.replace("candidate-", ""))
 
     votes = (await state.get_data())["votes"]
@@ -116,26 +121,24 @@ async def send_qr(message: types.Message, state: FSMContext):
     bio.seek(0)
     bytes = photo.read()
 
-    files = {'file': bytes} #открываем картинку как массив байт
-    response = requests.post(url=qr_url, files=files) #делаем POST запрос к апи, и получаем результат
-    print(response.content)
-    data = json.loads(response.content)[0]["symbol"][0]["data"] #Вытаскиваем оттуда значение qr
+    files = {'file': bytes} # открываем картинку как массив байт
+    response = requests.post(url=qr_url, files=files) # делаем POST запрос к апи, и получаем результат
 
-    if response.status_code != 200 or data == None: #Если распознать код не удалось
+    data = json.loads(response.content)[0]["symbol"][0]["data"] # Вытаскиваем оттуда значение qr
+
+    if response.status_code != 200 or data == None: # Если распознать код не удалось
         await message.answer("Извините, боту не удалось корректно прочитать QR код.\nПопробуйте сфотографировать чётче")
         return
 
-    validation_result = db.validateCode(data) #Валидация кода
+    validation_result = db.validateCode(data) # Валидация кода
     if validation_result["status"] == "error":
         await message.reply(validation_result["message"])
         return
 
     builder = InlineKeyboardBuilder()
     builder.add(
-        types.InlineKeyboardButton(text="Проголосовать",
-        callback_data=f"final-Vote"),
-        types.InlineKeyboardButton(text="Отмена",
-        callback_data="qr_deny")
+        types.InlineKeyboardButton(text="Проголосовать", callback_data="final-Vote"),
+        types.InlineKeyboardButton(text="Отмена", callback_data="qr_deny")
     )
         
     await message.answer(f"Хорошо, вы собираетесь проголосовать за *{candidates[int(candidate)]['Name']}*",
