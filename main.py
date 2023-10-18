@@ -16,6 +16,7 @@ import asyncio
 from dotenv import load_dotenv
 import io
 from classes import DataBase
+import datetime
 
 """Создание всех нужных объектов"""
 load_dotenv()
@@ -48,7 +49,7 @@ async def start(message: types.Message, state: FSMContext):
         callback_data="start_voting")
     )
     await message.answer(f"Здравствуйте, {message.from_user.full_name}.\nЯ - бот, созданный для выбора президента лицея " \
-                         + "в 2023 году.\nДавайте начнём", reply_markup=builder.as_markup())
+                         + f"в {datetime.datetime.today().year} году.\nДавайте начнём", reply_markup=builder.as_markup())
 
 
 @dp.callback_query(F.data == "start_voting")
