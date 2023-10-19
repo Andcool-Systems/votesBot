@@ -3,7 +3,6 @@ by AndcoolSystems, 2023
 """
 
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters.command import Command
@@ -48,8 +47,10 @@ async def start(message: types.Message, state: FSMContext):
         text="Приступить к голосованию",
         callback_data="start_voting")
     )
-    await message.answer(f"Здравствуйте, {message.from_user.full_name}.\nЯ - бот, созданный для выбора президента лицея " \
-                         + f"в {datetime.datetime.today().year} году.\nДавайте начнём", reply_markup=builder.as_markup())
+    await message.answer(f"Здравствуйте, {message.from_user.full_name}.\nЯ - бот, "
+                         + "созданный для выбора президента лицея "
+                         + f"в {datetime.datetime.today().year} году.\nДавайте начнём",
+                         reply_markup=builder.as_markup())
 
 
 @dp.callback_query(F.data == "start_voting")
@@ -65,14 +66,14 @@ async def send_candidates(callback: types.CallbackQuery, state: FSMContext):
             text="Проголосовать",
             callback_data=f"candidate-{candidate['Id']}")
         )
-        
-        votes.append(await callback.message.answer_photo(photo=FSInputFile(f"res/{candidate['Id']}.jpg"), 
-                                            caption=f"*{candidate['Name']}*\n{candidate['Age']} лет, {candidate['Group']} группа" \
-                                            + f"\n\n*{candidate['Remarck']}*\n{candidate['ElectionProgramm']}", 
 
-                                            parse_mode="Markdown", 
-                                            reply_markup=builder.as_markup()))
-        
+        votes.append(await callback.message.answer_photo(
+            photo=FSInputFile(f"res/{candidate['Id']}.jpg"),
+            caption=f"*{candidate['Name']}*\n{candidate['Age']} лет, {candidate['Group']} группа"
+                    + f"\n\n*{candidate['Remarck']}*\n{candidate['ElectionProgramm']}",
+            parse_mode="Markdown",
+            reply_markup=builder.as_markup()))
+
     await state.update_data(votes=votes)
     await state.set_state(States.candidate)
 
@@ -85,30 +86,34 @@ async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
 
     votes = (await state.get_data())["votes"]
     for vote in votes:
-        try: await vote.delete()
-        except: ...
+        try:
+            await vote.delete()
+        except:
+            ...
 
     builder = InlineKeyboardBuilder()
     builder.add(types.InlineKeyboardButton(
-            text="Отмена",
-            callback_data="qr_deny")
+        text="Отмена",
+        callback_data="qr_deny")
     )
-    await callback.message.answer("Теперь отправьте фото QR кода.\nФото должно быть разборчивым и хорошего качества.", 
+    await callback.message.answer("Теперь отправьте фото QR кода.\n" +
+                                  "Фото должно быть разборчивым и хорошего качества.",
                                   reply_markup=builder.as_markup())
     await state.set_state(States.waiting_to_qr)
 
 
-"""Хэндлер для колбэка кнопки отмены"""
 @dp.callback_query(F.data == "qr_deny")
 async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
+    """Хэндлер для колбэка кнопки отмены"""
     await state.clear()
     await callback.message.delete()
-    await callback.message.answer("*Отменено*\nЧто бы снова начать процесс голосования отправьте /start", parse_mode="Markdown")
+    await callback.message.answer("*Отменено*\nЧто бы снова начать процесс голосования отправьте /start",
+                                  parse_mode="Markdown")
 
 
-"""Хэндлер для фото (qr кода)"""
 @dp.message(F.photo, States.waiting_to_qr)
 async def send_qr(message: types.Message, state: FSMContext):
+    """Хэндлер для фото (qr кода)"""
     candidate = (await state.get_data())["candidate"]
 
     file_id = message.photo[-1].file_id
@@ -120,18 +125,18 @@ async def send_qr(message: types.Message, state: FSMContext):
     bio.name = f"{message.chat.id}.png"
     photo: io.BytesIO = await bot.download_file(file_path, destination=bio)
     bio.seek(0)
-    bytes = photo.read()
+    photo_bytes = photo.read()
 
-    files = {'file': bytes} # открываем картинку как массив байт
-    response = requests.post(url=qr_url, files=files) # делаем POST запрос к апи, и получаем результат
+    files = {'file': photo_bytes}  # открываем картинку как массив байт
+    response = requests.post(url=qr_url, files=files)  # делаем POST запрос к апи, и получаем результат
 
-    data = json.loads(response.content)[0]["symbol"][0]["data"] # Вытаскиваем оттуда значение qr
+    data = json.loads(response.content)[0]["symbol"][0]["data"]  # Вытаскиваем оттуда значение qr
 
-    if response.status_code != 200 or data == None: # Если распознать код не удалось
+    if response.status_code != 200 or data is None:  # Если распознать код не удалось
         await message.answer("Извините, боту не удалось корректно прочитать QR код.\nПопробуйте сфотографировать чётче")
         return
 
-    validation_result = db.validateCode(data) # Валидация кода
+    validation_result = db.validateCode(data)  # Валидация кода
     if validation_result["status"] == "error":
         await message.reply(validation_result["message"])
         return
@@ -141,28 +146,29 @@ async def send_qr(message: types.Message, state: FSMContext):
         types.InlineKeyboardButton(text="Проголосовать", callback_data="final-Vote"),
         types.InlineKeyboardButton(text="Отмена", callback_data="qr_deny")
     )
-        
+
     await message.answer(f"Хорошо, вы собираетесь проголосовать за *{candidates[int(candidate)]['Name']}*",
-                                            parse_mode="Markdown", 
-                                            reply_markup=builder.as_markup())
-    
+                         parse_mode="Markdown",
+                         reply_markup=builder.as_markup())
+
     await state.update_data(code=data)
-    await state.set_state(States.final_voting) 
+    await state.set_state(States.final_voting)
 
 
-"""Хэндлер для подтверждения голосования"""
 @dp.callback_query(F.data == "final-Vote", States.final_voting)
 async def select_candidate(callback: types.CallbackQuery, state: FSMContext):
+    """Хэндлер для подтверждения голосования"""
+
     data = await state.get_data()
-    db.vote(data["code"], data["candidate"]) #Обновляем записи в бд
+    db.vote(data["code"], data["candidate"])  # Обновляем записи в бд
     await callback.message.delete()
     await callback.message.answer(f"*Спасибо!*\nВаш голос очень важен для нас",
-                                            parse_mode="Markdown")
-    await state.clear() #Очищаем стейты
+                                  parse_mode="Markdown")
+    await state.clear()  # Очищаем стейты
 
 
-"""Асинхронная функция для запуска диспатчера"""
 async def start():
+    """Асинхронная функция для запуска диспатчера"""
     await dp.start_polling(bot)
 
 

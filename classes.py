@@ -5,6 +5,8 @@ from firebase_admin import storage
 import os
 
 """Класс для работы с базой данных"""
+
+
 class DataBase:
     def __init__(self):
         """Настройка соединения с базой данных"""
@@ -19,7 +21,6 @@ class DataBase:
         bucket = storage.bucket()
         print(self.candidates)
 
-
     def validateCode(self, code):
         """Метод проверки кода на валидность"""
 
@@ -32,7 +33,6 @@ class DataBase:
             return {"status": "error", "message": "Этот код уже был использован!"}
 
         return {"status": "success"}
-
 
     def vote(self, code, candidate):
         """Метод для обновления данных в бд"""
