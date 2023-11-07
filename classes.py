@@ -14,12 +14,10 @@ class DataBase:
         cred = credentials.Certificate('key.json')
         firebase_admin.initialize_app(cred, {
             'databaseURL': os.getenv("URL"),
-            'storageBucket': "cand"
+            'storageBucket': "gs://prezident-selection.appspot.com"
         })
         ref = db.reference('/CandidatesDB')
         self.candidates = ref.get()
-        bucket = storage.bucket()
-        print(self.candidates)
 
     def validateCode(self, code):
         """Метод проверки кода на валидность"""
@@ -37,5 +35,5 @@ class DataBase:
     def vote(self, code, candidate):
         """Метод для обновления данных в бд"""
         ref = db.reference('/ElectionDB')
-        ref.update({f'{code}/Chose': candidate})
+        ref.update({f'{code}/Chose': int(candidate)})
         ref.update({f'{code}/IsValid': True})
